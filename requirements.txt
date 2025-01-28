@@ -1,8 +1,8 @@
-tk
 pandas
 pytesseract
 PyPDF2
 pdf2image
 Pillow
 reportlab
-openpyxl
+python3.12.0
+dearpygui
