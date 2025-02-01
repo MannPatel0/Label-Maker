@@ -409,5 +409,4 @@ def main():
     app.run()
 
 if __name__ == "__main__":
-    print("Script has started The main file")
     main()
