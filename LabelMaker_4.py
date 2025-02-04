@@ -61,6 +61,8 @@ class LabelMakerApp:
         self.csv_mappings = {}
         self.csv_file_path = None
         self.selected_row = None
+        self.selected_product = None
+        self.selected_index = None
 
     def setup_dpg(self):
         dpg.create_context()
@@ -154,43 +156,134 @@ class LabelMakerApp:
             self.set_mapping_enabled(False)
 
 
-    def clb_selectable(self, sender, app_data, user_data):
-        print(f"Row {user_data}")
+    def create_edit_popup(self):
+        if not self.selected_product:
+            dpg.set_value("list_status", "Please select a product to edit")
+            return
+
+        with dpg.window(label="Edit Product", modal=True, show=True, tag="edit_modal", width=400, height=200):
+            with dpg.group(horizontal=False):
+                dpg.add_text("Edit Product Details", color=[255, 255, 0])
+                dpg.add_separator()
+
+                fields = [
+                    ("edit_name", "Product Name:", self.selected_product.name),
+                    ("edit_price", "Price ($):", str(self.selected_product.price)),
+                    ("edit_upc", "UPC Code:", self.selected_product.upc),
+                    ("edit_exp", "Expiration Date:", self.selected_product.expiration_date or "")
+                ]
+
+                for tag, label, value in fields:
+                    with dpg.group(horizontal=True):
+                        dpg.add_text(label)
+                        dpg.add_input_text(tag=tag, default_value=value, width=200)
+
+                dpg.add_separator()
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="Save", callback=self.save_edited_product)
+                    dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item("edit_modal"))
+
+    def save_edited_product(self):
+        """
+        Saves the edited product details
+        """
+        try:
+            # Create updated product
+            updated_product = Product(
+                name=dpg.get_value("edit_name"),
+                price=float(dpg.get_value("edit_price")),
+                upc=dpg.get_value("edit_upc"),
+                expiration_date=dpg.get_value("edit_exp"),
+                source=self.selected_product.source
+            )
+
+            # Update the product in the appropriate list
+            if self.selected_product.source == "csv":
+                self.model.csv_products[self.selected_index] = updated_product
+            else:
+                self.model.manual_products[self.selected_index] = updated_product
+
+            # Update display
+            self.update_product_list()
+            self.close_edit_popup()
+            dpg.set_value("list_status", f"Updated product: {updated_product.name}")
+
+            # Clear selection
+            self.selected_product = None
+            self.selected_index = None
+
+        except Exception as e:
+            print(f"Error saving product: {str(e)}")
+            dpg.set_value("list_status", f"Error saving product: {str(e)}")
+            self.close_edit_popup()
+
+    def delete_selected_product(self):
+        """
+        Deletes the selected product
+        """
+        if not self.selected_product:
+            dpg.set_value("list_status", "Please select a product first")
+            return
+
+        try:
+            # Remove from appropriate list
+            if self.selected_product.source == "csv":
+                self.model.csv_products.pop(self.selected_index)
+            else:
+                self.model.manual_products.pop(self.selected_index)
+
+            self.update_product_list()
+            dpg.set_value("list_status", f"Deleted product: {self.selected_product.name}")
+            
+            # Clear selection
+            self.selected_product = None
+            self.selected_index = None
+
+        except Exception as e:
+            print(f"Error deleting product: {str(e)}")
+            dpg.set_value("list_status", f"Error deleting product: {str(e)}")
+            
+    def handle_row_selection(self, sender, app_data, user_data):
+        """
+        Handle row selection in the table
+        """
+        self.selected_index = user_data[0]
+        all_products = self.model.get_all_products()
+        if 0 <= self.selected_index < len(all_products):
+            self.selected_product = all_products[self.selected_index]
+            dpg.set_value("list_status", f"Selected product: {self.selected_product.name}")
 
     def create_product_list_window(self):
-        with dpg.window(label="Product List", tag="list_window", no_close=True, no_collapse=True, pos=[410, 25], width=700, height=555, no_resize=True, no_move=True):
+        with dpg.window(label="Product List", tag="list_window", no_close=True, no_collapse=True, 
+                       pos=[410, 25], width=700, height=555, no_resize=True, no_move=True):
             with dpg.group(horizontal=True):
-                dpg.add_button(label="Update")
-                dpg.add_button(label="Delete")
-                dpg.add_button(label="Delete All")  # Add callback if needed
+                            dpg.add_button(
+                                label="Edit Selected",
+                                callback=self.create_edit_popup,
+                                width=120
+                            )
+                            dpg.add_button(
+                                label="Delete Selected",
+                                callback=self.delete_selected_product,
+                                width=120
+                            )
+                            dpg.add_button(
+                                label="Delete All",
+                                callback=self.clear_table_fields,
+                                width=120
+                            )
+                        
             dpg.add_separator()
-
-            # Table Theme
-            with dpg.theme() as table_theme:
-                with dpg.theme_component(dpg.mvTable):
-                    dpg.add_theme_color(dpg.mvThemeCol_HeaderActive, (0, 0, 0, 0), category=dpg.mvThemeCat_Core)
-                    dpg.add_theme_color(dpg.mvThemeCol_Header, (0, 0, 255, 255), category=dpg.mvThemeCat_Core)
-
-            # Table for product list
             with dpg.table(tag="product_table", header_row=True,
-                        policy=dpg.mvTable_SizingFixedFit,
-                        borders_innerH=True, borders_outerH=True,
-                        borders_innerV=True, borders_outerV=True,
-                        scrollY=True, resizable=True):
+                          policy=dpg.mvTable_SizingFixedFit,
+                          borders_innerH=True, borders_outerH=True,
+                          borders_innerV=True, borders_outerV=True,
+                          scrollY=True, resizable=True):
 
-                # Adding columns
                 dpg.add_table_column(label="Name", width=200)
                 dpg.add_table_column(label="Price", width=100)
                 dpg.add_table_column(label="UPC Code", width=150)
                 dpg.add_table_column(label="Exp Date", width=150)
-            # Adding rows dynamically with selectable cells
-                for i, (name, price, upc, exp) in enumerate(self.model.get_all_products()):
-                    print(i)
-                    with dpg.table_row():
-                        dpg.add_selectable(label=name, callback=self.clb_selectable, user_data=(i, 1))
-                        dpg.add_selectable(label=price, callback=self.clb_selectable, user_data=(i, 2))
-                        dpg.add_selectable(label=upc, callback=self.clb_selectable, user_data=(i, 3))
-                        dpg.add_selectable(label=exp, callback=self.clb_selectable, user_data=(i, 4))
 
             dpg.add_text("", tag="list_status")
 
@@ -313,50 +406,155 @@ class LabelMakerApp:
         else:
             print(f"Warning: Tried to delete non-existent row {row}")
 
-    def create_edit_popup(self, row, col_idx, value):
+    def create_edit_popup(self):
         """
-        Creates a popup to edit the value of a cell in the table.
+        Creates a popup to edit the selected product
         """
-        print(f"Editing Row {row}, Column {col_idx}, Value {value}")
-        # You can implement the editing logic here, like opening a text input for editing.
+        try:
+            if not self.selected_product:
+                dpg.set_value("list_status", "Please select a product first")
+                return
 
+            # Clean up any existing edit window
+            if dpg.does_item_exist("edit_cell_modal"):
+                dpg.delete_item("edit_cell_modal")
+
+            # Calculate window position (center of viewport)
+            viewport_width = dpg.get_viewport_width()
+            viewport_height = dpg.get_viewport_height()
+            window_width = 400
+            window_height = 300
+            pos_x = (viewport_width - window_width) // 2
+            pos_y = (viewport_height - window_height) // 2
+
+            # Create modal popup for editing
+            with dpg.window(label="Edit Product", 
+                          modal=True,
+                          show=True,
+                          tag="edit_cell_modal",
+                          width=window_width,
+                          height=window_height,
+                          pos=[pos_x, pos_y],
+                          no_move=True):
+                
+                dpg.add_text("Edit Product Details", color=[255, 255, 0])
+                dpg.add_separator()
+
+                # Create input fields for each product attribute
+                fields = [
+                    ("edit_name", "Product Name:", self.selected_product.name),
+                    ("edit_price", "Price ($):", str(self.selected_product.price).replace('$', '')),
+                    ("edit_upc", "UPC Code:", self.selected_product.upc),
+                    ("edit_exp", "Expiration Date:", self.selected_product.expiration_date or "")
+                ]
+
+                for tag, label, value in fields:
+                    with dpg.group(horizontal=True):
+                        dpg.add_text(label, width=120)
+                        if tag == "edit_price":
+                            dpg.add_input_float(tag=tag, default_value=float(value), format="%.2f", width=200)
+                        else:
+                            dpg.add_input_text(tag=tag, default_value=value, width=200)
+
+                dpg.add_separator()
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="Save", callback=self.save_edited_product, width=120)
+                    dpg.add_button(label="Cancel", callback=self.close_edit_popup, width=120)
+
+        except Exception as e:
+            print(f"Error creating edit popup: {str(e)}")
+            dpg.set_value("list_status", f"Error opening edit window: {str(e)}")
+
+    def close_edit_popup(self):
+        """
+        Safely closes the edit popup window
+        """
+        try:
+            if dpg.does_item_exist("edit_cell_modal"):
+                dpg.delete_item("edit_cell_modal")
+        except Exception as e:
+            print(f"Error closing edit popup: {str(e)}")
+
+    def save_cell_edit(self):
+        """
+        Saves the edited cell value back to the product
+        """
+        try:
+            if not dpg.does_item_exist("cell_edit_input"):
+                return
+                
+            # Get the new value
+            new_value = dpg.get_value("cell_edit_input")
+            
+            # Create a copy of the current product data
+            product_data = {
+                'name': self.selected_product.name,
+                'price': self.selected_product.price,
+                'upc': self.selected_product.upc,
+                'expiration_date': self.selected_product.expiration_date
+            }
+            
+            # Update the specific field
+            if self.editing_field == 'price':
+                product_data[self.editing_field] = float(new_value)
+            else:
+                product_data[self.editing_field] = str(new_value)
+            
+            # Create updated product
+            updated_product = Product(
+                name=product_data['name'],
+                price=product_data['price'],
+                upc=product_data['upc'],
+                expiration_date=product_data['expiration_date'],
+                source=self.selected_product.source
+            )
+            
+            # Update the product in the appropriate list
+            if self.selected_product.source == "csv":
+                self.model.csv_products[self.selected_index] = updated_product
+            else:
+                self.model.manual_products[self.selected_index] = updated_product
+            
+            # Update the display
+            self.update_product_list()
+            self.close_edit_popup()
+            dpg.set_value("list_status", f"Updated {self.editing_field} successfully")
+            
+        except Exception as e:
+            print(f"Error saving edit: {str(e)}")
+            dpg.set_value("list_status", f"Error updating {self.editing_field}: {str(e)}")
+            self.close_edit_popup()
 
     def update_product_list(self):
         """
-        Updates the product list in the table.
-        After products are added (either manually or from a CSV), this is called to update the display.
+        Updates the product list in the table
         """
-        if dpg.does_item_exist("product_table"):
-            # Get all existing rows
-            existing_rows = dpg.get_item_children("product_table", slot=1)
-            if existing_rows:  # Ensure it's not None
-                for row in existing_rows:
-                    if dpg.does_item_exist(row):  # Check if row exists before deleting
-                        dpg.delete_item(row)
-                        print(f"Deleted row {row}")
+        try:
+            if dpg.does_item_exist("product_table"):
+                existing_rows = dpg.get_item_children("product_table", slot=1)
+                if existing_rows:
+                    for row in existing_rows:
+                        if dpg.does_item_exist(row):
+                            dpg.delete_item(row)
 
-        # Add products to the table
-        for i, product in enumerate(self.model.get_all_products()):
-            with dpg.table_row(parent="product_table") as row:
-                for col_idx, value in enumerate([
-                    product.name,
-                    f"${product.price:.2f}",
-                    product.upc,
-                    product.expiration_date or "",
-                ]):
-                    cell = dpg.add_text(value)
+            # Add products to the table
+            for i, product in enumerate(self.model.get_all_products()):
+                with dpg.table_row(parent="product_table"):
+                    # Create a single selectable row
+                    dpg.add_selectable(
+                        label=f"{product.name}",
+                        span_columns=True,
+                        callback=self.handle_row_selection,
+                        user_data=(i, product)
+                    )
+                    # Add other columns as regular text
+                    dpg.add_text(f"${product.price:.2f}")
+                    dpg.add_text(product.upc)
+                    dpg.add_text(product.expiration_date or "")
 
-                    if col_idx < 4:  # Add popup for editing or deleting
-                        with dpg.popup(cell, mousebutton=dpg.mvMouseButton_Left):
-                            # Edit Button
-                            def edit_callback():
-                                self.create_edit_popup(row, col_idx, value)
-                            dpg.add_button(label="Edit", callback=edit_callback)
-
-                            # Delete Button
-                            def delete_callback():
-                                self.delete_selected_row(row)
-                            dpg.add_button(label="Delete", callback=delete_callback)
+        except Exception as e:
+            print(f"Error updating product list: {str(e)}")
+            dpg.set_value("list_status", "Error updating product list")
 
     def create_labels(self):
         products = self.model.get_all_products()
@@ -494,9 +692,6 @@ class LabelMakerApp:
 
 def main():
     app = LabelMakerApp()
-    for i in enumerate(LabelMakerApp.model.get_all_products()):
-        print(i)
-
     app.run()
 
 if __name__ == "__main__":
