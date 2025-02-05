@@ -1,8 +1,5 @@
+python>=3.11
 pandas
-pytesseract
-PyPDF2
-pdf2image
-Pillow
 reportlab
-python3.12.0
+typing
 dearpygui

@@ -8,9 +8,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 from reportlab.lib import colors
-import json
-import functools
-
 
 # Model code remains the same as before
 @dataclass
@@ -33,21 +30,18 @@ class Product:
 
 class ProductModel:
     def __init__(self):
-        self.manual_products: List[Product] = []
-        self.csv_products: List[Product] = []
+        self.products: List[Product] = []
 
     def add_product(self, product: Product) -> None:
-        if product.source == "csv":
-            self.csv_products.append(product)
-        else:
-            self.manual_products.append(product)
+        if product != "":
+            self.products.append(product)
+
 
     def get_all_products(self) -> List[Product]:
-        return self.manual_products + self.csv_products
+        return self.products
 
     def remove_all_products(self) -> None:
-        self.csv_products.clear()
-        self.manual_products.clear()
+        self.products.clear()
 
     def get_one_product(self)->None:
         pass
@@ -63,6 +57,7 @@ class LabelMakerApp:
         self.selected_row = None
         self.selected_product = None
         self.selected_index = None
+
 
     def setup_dpg(self):
         dpg.create_context()
@@ -137,7 +132,7 @@ class LabelMakerApp:
 
             dpg.add_separator()
 
-            with dpg.file_dialog(directory_selector=False, show=False, callback=self.callback, tag="file_dialog_tag", width=700 ,height=400):
+            with dpg.file_dialog(directory_selector=False, show=False, callback=self.callback, file_count=1, tag="file_dialog_tag", width=700 ,height=400):
                 dpg.add_file_extension(".csv", color=(255, 255, 0, 255))
 
             # File selection
@@ -154,7 +149,6 @@ class LabelMakerApp:
 
             # Initially disable mapping controls
             self.set_mapping_enabled(False)
-
 
     def create_edit_popup(self):
         if not self.selected_product:
@@ -184,9 +178,6 @@ class LabelMakerApp:
                     dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item("edit_modal"))
 
     def save_edited_product(self):
-        """
-        Saves the edited product details
-        """
         try:
             # Create updated product
             updated_product = Product(
@@ -194,14 +185,10 @@ class LabelMakerApp:
                 price=float(dpg.get_value("edit_price")),
                 upc=dpg.get_value("edit_upc"),
                 expiration_date=dpg.get_value("edit_exp"),
-                source=self.selected_product.source
             )
 
             # Update the product in the appropriate list
-            if self.selected_product.source == "csv":
-                self.model.csv_products[self.selected_index] = updated_product
-            else:
-                self.model.manual_products[self.selected_index] = updated_product
+            self.model.products[self.selected_index] = updated_product
 
             # Update display
             self.update_product_list()
@@ -218,23 +205,18 @@ class LabelMakerApp:
             self.close_edit_popup()
 
     def delete_selected_product(self):
-        """
-        Deletes the selected product
-        """
         if not self.selected_product:
             dpg.set_value("list_status", "Please select a product first")
             return
 
         try:
             # Remove from appropriate list
-            if self.selected_product.source == "csv":
-                self.model.csv_products.pop(self.selected_index)
-            else:
-                self.model.manual_products.pop(self.selected_index)
+            self.model.products.pop(self.selected_index)
+            print(self.model.products)
 
             self.update_product_list()
             dpg.set_value("list_status", f"Deleted product: {self.selected_product.name}")
-            
+
             # Clear selection
             self.selected_product = None
             self.selected_index = None
@@ -242,11 +224,8 @@ class LabelMakerApp:
         except Exception as e:
             print(f"Error deleting product: {str(e)}")
             dpg.set_value("list_status", f"Error deleting product: {str(e)}")
-            
+
     def handle_row_selection(self, sender, app_data, user_data):
-        """
-        Handle row selection in the table
-        """
         self.selected_index = user_data[0]
         all_products = self.model.get_all_products()
         if 0 <= self.selected_index < len(all_products):
@@ -254,14 +233,14 @@ class LabelMakerApp:
             dpg.set_value("list_status", f"Selected product: {self.selected_product.name}")
 
     def create_product_list_window(self):
-        with dpg.window(label="Product List", tag="list_window", no_close=True, no_collapse=True, 
+        with dpg.window(label="Product List", tag="list_window", no_close=True, no_collapse=True,
                        pos=[410, 25], width=700, height=555, no_resize=True, no_move=True):
             with dpg.group(horizontal=True):
-                            dpg.add_button(
-                                label="Edit Selected",
-                                callback=self.create_edit_popup,
-                                width=120
-                            )
+                            # dpg.add_button(
+                            #     label="Edit Selected",
+                            #     callback=self.create_edit_popup,
+                            #     width=120
+                            # )
                             dpg.add_button(
                                 label="Delete Selected",
                                 callback=self.delete_selected_product,
@@ -272,7 +251,7 @@ class LabelMakerApp:
                                 callback=self.clear_table_fields,
                                 width=120
                             )
-                        
+
             dpg.add_separator()
             with dpg.table(tag="product_table", header_row=True,
                           policy=dpg.mvTable_SizingFixedFit,
@@ -310,8 +289,7 @@ class LabelMakerApp:
     def callback(self, sender, app_data):
         print("Sender: ", sender)
         print("App Data: ", app_data)
-        selected_file = app_data['file_name']
-        self.select_csv_file(selected_file)
+        self.select_csv_file(app_data['file_name'])
 
 
     def select_csv_file(self, csv_file_path):
@@ -428,7 +406,7 @@ class LabelMakerApp:
             pos_y = (viewport_height - window_height) // 2
 
             # Create modal popup for editing
-            with dpg.window(label="Edit Product", 
+            with dpg.window(label="Edit Product",
                           modal=True,
                           show=True,
                           tag="edit_cell_modal",
@@ -436,7 +414,7 @@ class LabelMakerApp:
                           height=window_height,
                           pos=[pos_x, pos_y],
                           no_move=True):
-                
+
                 dpg.add_text("Edit Product Details", color=[255, 255, 0])
                 dpg.add_separator()
 
@@ -482,10 +460,10 @@ class LabelMakerApp:
         try:
             if not dpg.does_item_exist("cell_edit_input"):
                 return
-                
+
             # Get the new value
             new_value = dpg.get_value("cell_edit_input")
-            
+
             # Create a copy of the current product data
             product_data = {
                 'name': self.selected_product.name,
@@ -493,13 +471,13 @@ class LabelMakerApp:
                 'upc': self.selected_product.upc,
                 'expiration_date': self.selected_product.expiration_date
             }
-            
+
             # Update the specific field
             if self.editing_field == 'price':
                 product_data[self.editing_field] = float(new_value)
             else:
                 product_data[self.editing_field] = str(new_value)
-            
+
             # Create updated product
             updated_product = Product(
                 name=product_data['name'],
@@ -508,18 +486,18 @@ class LabelMakerApp:
                 expiration_date=product_data['expiration_date'],
                 source=self.selected_product.source
             )
-            
+
             # Update the product in the appropriate list
             if self.selected_product.source == "csv":
                 self.model.csv_products[self.selected_index] = updated_product
             else:
                 self.model.manual_products[self.selected_index] = updated_product
-            
+
             # Update the display
             self.update_product_list()
             self.close_edit_popup()
             dpg.set_value("list_status", f"Updated {self.editing_field} successfully")
-            
+
         except Exception as e:
             print(f"Error saving edit: {str(e)}")
             dpg.set_value("list_status", f"Error updating {self.editing_field}: {str(e)}")
@@ -576,6 +554,7 @@ class LabelMakerApp:
         # Label dimensions
         label_width = 2.5 * inch
         label_height = 1 * inch
+
 
         text_area_width = 1.75 * inch
         price_area_width = 0.75 * inch
@@ -647,7 +626,7 @@ class LabelMakerApp:
 
                     c.setFillColor(colors.black)
                     c.setFont("Helvetica-Bold", 14)
-                    dollarsign= f"$"
+                    dollarsign = f"$"
                     c.drawString(price_x_position-8, price_y_position-2, dollarsign)
 
                     product_index += 1
