@@ -16,6 +16,14 @@ from reportlab.graphics.barcode import ecc200datamatrix
 import subprocess
 
 
+# python>=3.11
+# pandas
+# reportlab
+# typing
+# dearpygui
+
+
+
 # Model code remains the same as before
 @dataclass
 class Product:
