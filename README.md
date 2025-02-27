@@ -28,10 +28,5 @@ The generated labels.
 ## 📥 Download  
 🔗 [Download **`Helios Label Maker.exe`**](Helios%20Label%20Maker.exe) to get started!  
 
-
-## 📜 License  
-This project is open-source and available under the MIT License.  
-
-
-## 💡 Contributing  
-Feel free to submit issues or contribute to the project on GitHub!  
+## Contributing  
+Feel free to submit issues or contribute to the project!  
