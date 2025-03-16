@@ -2,9 +2,9 @@
 
 ## Overview  
 Label Maker is a simple yet powerful tool designed to help users generate labels from CSV files and export them as PDFs.  
-<img src="./src/Assets/software-image-4.png" alt="Software Screenshot" width="1000">  
+<img src="./Assets/software-image-4.png" alt="Software Screenshot" width="1000">  
 The generated labels.  
-<img src="./src/Assets/labels-image.png" alt="Generated Labels" width="1000"> 
+<img src="./Assets/labels-image.png" alt="Generated Labels" width="1000"> 
 
 
 ## 🚀 Currently Implemented Features  
