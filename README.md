@@ -1,7 +1,7 @@
 # Label Maker
 
 ## 📥 Download  
-🔗 [Download **`Helios Label Maker.exe`**] `Helios%20Label%20Maker.exe` to get started!  
+🔗 Download [**`Helios Label Maker.exe`**](Helios%20Label%20Maker.exe) to get started!  
 
 ## Overview  
 Label Maker is a simple yet powerful tool designed to help users generate labels from CSV files and export them as PDFs.  
