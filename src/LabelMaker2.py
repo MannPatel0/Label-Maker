@@ -634,7 +634,7 @@ class LabelMakerApp:
         output_file = os.path.join(desktop, "labels.pdf")
         self.show_info("Message Box", "Do you wish to open the generated file?", self.on_selection)
 
-        self.create_labels_pdf(products, output_file, False, True)
+        self.create_labels_pdf(products, output_file, True, False)
         dpg.set_value("list_status", f"Labels created: {os.path.basename(output_file)}")
 
     def create_labels_pdf(self, products: List[Product], output_file: str, color_enabled: bool, exp_enable: bool):
@@ -676,13 +676,12 @@ class LabelMakerApp:
 
                     # Draw label border
                     c.setLineWidth(0.5)
-                    c.setFillColor(colors.yellow)
-                    c.setStrokeColor(colors.red)
-                    c.rect(x, y - label_height, label_width, label_height,fill=True)
+                    c.setStrokeColor(colors.black)
+                    c.rect(x, y - label_height, label_width, label_height)
 
                     # Draw product name
                     c.setFillColor(colors.black)
-                    c.setFont("Helvetica-Bold", 12)
+                    c.setFont("Helvetica-Bold", 11)
 
                     first_line_limit = 25
                     product_name_lines = self.split_text(product_name, first_line_limit)
@@ -692,27 +691,23 @@ class LabelMakerApp:
 
                     # Draw expiration date if enabled
                     if exp_enable:
-                        c.setFont("Helvetica", 10)
+                        c.setFont("Helvetica", 6)
                         expiration_date = str(product.expiration_date if product.expiration_date else 'N/A')
-                        c.drawString(x + 5, y - 35, f"Weight: {expiration_date}")
+                        c.drawString(x + 5, y - 35, f"EXP: {expiration_date}")
 
                     # Draw barcode
                     barcode_x_position = x - margin_x
                     barcode_y_position = y - label_height + 5
-                    c.setFillColor(colors.red)
-                    c.setFont("Helvetica-Bold", 28)  #let users decide with a settigns pannel
-                    c.drawString(barcode_x_position+14, barcode_y_position, "SALE!")
-
-
-                    # barcode = code128.Code128(barcode_value, barHeight=label_height / 3, barWidth=.75)
-                    # barcode.drawOn(c, barcode_x_position, barcode_y_position)
+                    barcode_value = str(product.upc)
+                    barcode = code128.Code128(barcode_value, barHeight=label_height / 3, barWidth=.75)
+                    barcode.drawOn(c, barcode_x_position, barcode_y_position)
 
                     # Draw price
                     price_x_position = x + text_area_width-15
                     price_y_position = y - 65
 
                     if color_enabled:
-                        c.setFillColor(colors.red)
+                        c.setFillColor(colors.yellow)
                         c.rect(price_x_position-10, price_y_position-7, price_area_width+25, 30, fill=True)
 
                     c.setFillColor(colors.black)
